@@ -1,0 +1,840 @@
+{
+  "schema_version": "1.1",
+  "analyzer_version": "0.2.0",
+  "languages": [
+    "python"
+  ],
+  "files": [
+    {
+      "path": "order_service.py",
+      "sha256": "6a5a7ed1e9ee8f5bed131bd2d9d875becb9fc5342ebc608dc2e6e302ae589ca7",
+      "language": "python",
+      "parser_python": "3.11.9"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "order_service.py:1:0:module",
+      "kind": "module",
+      "name": "order_service",
+      "qualified_name": "order_service",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 1,
+        "end_line": 38,
+        "start_column": 0,
+        "end_column": 0,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": null,
+      "facts": {
+        "docstring": "Small demo: purchase validation, successful processing, and a failure path."
+      }
+    },
+    {
+      "id": "order_service.py:4:0:class",
+      "kind": "class",
+      "name": "OrderError",
+      "qualified_name": "order_service.OrderError",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 4,
+        "end_line": 5,
+        "start_column": 0,
+        "end_column": 36,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:1:0:module",
+      "facts": {
+        "docstring": "A purchase cannot proceed.",
+        "decorators": [],
+        "bases": [
+          "ValueError"
+        ]
+      }
+    },
+    {
+      "id": "order_service.py:8:0:function",
+      "kind": "function",
+      "name": "validate_order",
+      "qualified_name": "order_service.validate_order",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 8,
+        "end_line": 12,
+        "start_column": 0,
+        "end_column": 17,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:1:0:module",
+      "facts": {
+        "docstring": "Reject nonpositive purchase amounts.",
+        "decorators": [],
+        "parameters": "amount: float",
+        "return_annotation": "float",
+        "async": false,
+        "returns": [
+          {
+            "expression": "return amount",
+            "line": 12
+          }
+        ],
+        "raises": [
+          {
+            "expression": "raise OrderError('Amount must be positive')",
+            "line": 11
+          }
+        ],
+        "assignments": [],
+        "awaits": []
+      }
+    },
+    {
+      "id": "order_service.py:10:4:block",
+      "kind": "block",
+      "name": "If@10",
+      "qualified_name": "order_service.validate_order.If@10",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 10,
+        "end_line": 11,
+        "start_column": 4,
+        "end_column": 51,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:8:0:function",
+      "facts": {
+        "syntax_kind": "If",
+        "test": "amount <= 0",
+        "body_groups": [
+          "if_true"
+        ]
+      }
+    },
+    {
+      "id": "order_service.py:11:8:branch",
+      "kind": "branch",
+      "name": "if_true",
+      "qualified_name": "order_service.validate_order.If@10.if_true",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 11,
+        "end_line": 11,
+        "start_column": 8,
+        "end_column": 51,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:10:4:block",
+      "facts": {
+        "role": "if_true",
+        "order": 0
+      }
+    },
+    {
+      "id": "order_service.py:15:0:function",
+      "kind": "function",
+      "name": "calculate_total",
+      "qualified_name": "order_service.calculate_total",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 15,
+        "end_line": 17,
+        "start_column": 0,
+        "end_column": 44,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:1:0:module",
+      "facts": {
+        "docstring": "Calculate the final total including tax.",
+        "decorators": [],
+        "parameters": "amount: float, tax_rate: float=0.08",
+        "return_annotation": "float",
+        "async": false,
+        "returns": [
+          {
+            "expression": "return round(amount * (1 + tax_rate), 2)",
+            "line": 17
+          }
+        ],
+        "raises": [],
+        "assignments": [],
+        "awaits": []
+      }
+    },
+    {
+      "id": "order_service.py:20:0:class",
+      "kind": "class",
+      "name": "OrderService",
+      "qualified_name": "order_service.OrderService",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 20,
+        "end_line": 26,
+        "start_column": 0,
+        "end_column": 53,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:1:0:module",
+      "facts": {
+        "docstring": "Accept orders and produce a receipt.",
+        "decorators": [],
+        "bases": []
+      }
+    },
+    {
+      "id": "order_service.py:23:4:function",
+      "kind": "function",
+      "name": "process",
+      "qualified_name": "order_service.OrderService.process",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 23,
+        "end_line": 26,
+        "start_column": 4,
+        "end_column": 53,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:20:0:class",
+      "facts": {
+        "docstring": null,
+        "decorators": [],
+        "parameters": "self, amount: float",
+        "return_annotation": "dict",
+        "async": false,
+        "returns": [
+          {
+            "expression": "return {'status': 'accepted', 'total': total}",
+            "line": 26
+          }
+        ],
+        "raises": [],
+        "assignments": [
+          {
+            "expression": "validated = validate_order(amount)",
+            "line": 24
+          },
+          {
+            "expression": "total = calculate_total(validated)",
+            "line": 25
+          }
+        ],
+        "awaits": []
+      }
+    },
+    {
+      "id": "order_service.py:29:0:function",
+      "kind": "function",
+      "name": "main",
+      "qualified_name": "order_service.main",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 29,
+        "end_line": 34,
+        "start_column": 0,
+        "end_column": 59,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:1:0:module",
+      "facts": {
+        "docstring": null,
+        "decorators": [],
+        "parameters": "",
+        "return_annotation": null,
+        "async": false,
+        "returns": [
+          {
+            "expression": "return service.process(100)",
+            "line": 32
+          },
+          {
+            "expression": "return {'status': 'rejected', 'reason': str(error)}",
+            "line": 34
+          }
+        ],
+        "raises": [],
+        "assignments": [
+          {
+            "expression": "service = OrderService()",
+            "line": 30
+          }
+        ],
+        "awaits": []
+      }
+    },
+    {
+      "id": "order_service.py:31:4:block",
+      "kind": "block",
+      "name": "Try@31",
+      "qualified_name": "order_service.main.Try@31",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 31,
+        "end_line": 34,
+        "start_column": 4,
+        "end_column": 59,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:29:0:function",
+      "facts": {
+        "syntax_kind": "Try",
+        "body_groups": [
+          "try_body",
+          "except_0"
+        ]
+      }
+    },
+    {
+      "id": "order_service.py:32:8:branch",
+      "kind": "branch",
+      "name": "try_body",
+      "qualified_name": "order_service.main.Try@31.try_body",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 32,
+        "end_line": 32,
+        "start_column": 8,
+        "end_column": 35,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:31:4:block",
+      "facts": {
+        "role": "try_body",
+        "order": 0
+      }
+    },
+    {
+      "id": "order_service.py:33:4:branch",
+      "kind": "branch",
+      "name": "except_0",
+      "qualified_name": "order_service.main.Try@31.except_0",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 33,
+        "end_line": 34,
+        "start_column": 4,
+        "end_column": 59,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:31:4:block",
+      "facts": {
+        "role": "except_0",
+        "order": 1
+      }
+    },
+    {
+      "id": "order_service.py:33:4:block",
+      "kind": "block",
+      "name": "ExceptHandler@33",
+      "qualified_name": "order_service.main.Try@31.except_0.ExceptHandler@33",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 33,
+        "end_line": 34,
+        "start_column": 4,
+        "end_column": 59,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:33:4:branch",
+      "facts": {
+        "syntax_kind": "ExceptHandler",
+        "type": "OrderError",
+        "body_groups": []
+      }
+    },
+    {
+      "id": "order_service.py:37:0:block",
+      "kind": "block",
+      "name": "If@37",
+      "qualified_name": "order_service.If@37",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 37,
+        "end_line": 38,
+        "start_column": 0,
+        "end_column": 17,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:1:0:module",
+      "facts": {
+        "syntax_kind": "If",
+        "test": "__name__ == '__main__'",
+        "body_groups": [
+          "if_true"
+        ]
+      }
+    },
+    {
+      "id": "order_service.py:38:4:branch",
+      "kind": "branch",
+      "name": "if_true",
+      "qualified_name": "order_service.If@37.if_true",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 38,
+        "end_line": 38,
+        "start_column": 4,
+        "end_column": 17,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:37:0:block",
+      "facts": {
+        "role": "if_true",
+        "order": 0
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "order_service.py:1:0:module",
+      "target": "order_service.py:4:0:class",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 4,
+        "end_line": 5,
+        "start_column": 0,
+        "end_column": 36,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:1:0:module",
+      "target": "order_service.py:8:0:function",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 8,
+        "end_line": 12,
+        "start_column": 0,
+        "end_column": 17,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:8:0:function",
+      "target": "order_service.py:10:4:block",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 10,
+        "end_line": 11,
+        "start_column": 4,
+        "end_column": 51,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:10:4:block",
+      "target": "order_service.py:11:8:branch",
+      "kind": "branches",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 11,
+        "end_line": 11,
+        "start_column": 8,
+        "end_column": 51,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "if_true",
+      "reason": "Syntactic branch group; execution is not observed",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:11:8:branch",
+      "target": "order_service.py:4:0:class",
+      "kind": "calls",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 11,
+        "end_line": 11,
+        "start_column": 14,
+        "end_column": 51,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "static_candidate",
+      "expression": "OrderError",
+      "reason": "Single lexical definition; runtime rebinding/decorators may alter dispatch",
+      "details": {
+        "callee_parts": [
+          "OrderError"
+        ]
+      }
+    },
+    {
+      "source": "order_service.py:1:0:module",
+      "target": "order_service.py:15:0:function",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 15,
+        "end_line": 17,
+        "start_column": 0,
+        "end_column": 44,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:15:0:function",
+      "target": null,
+      "kind": "calls",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 17,
+        "end_line": 17,
+        "start_column": 11,
+        "end_column": 44,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "unresolved",
+      "expression": "round",
+      "reason": "External or dynamic target; no runtime observation",
+      "details": {
+        "callee_parts": [
+          "round"
+        ]
+      }
+    },
+    {
+      "source": "order_service.py:1:0:module",
+      "target": "order_service.py:20:0:class",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 20,
+        "end_line": 26,
+        "start_column": 0,
+        "end_column": 53,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:20:0:class",
+      "target": "order_service.py:23:4:function",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 23,
+        "end_line": 26,
+        "start_column": 4,
+        "end_column": 53,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:23:4:function",
+      "target": "order_service.py:8:0:function",
+      "kind": "calls",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 24,
+        "end_line": 24,
+        "start_column": 20,
+        "end_column": 42,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "static_candidate",
+      "expression": "validate_order",
+      "reason": "Single lexical definition; runtime rebinding/decorators may alter dispatch",
+      "details": {
+        "callee_parts": [
+          "validate_order"
+        ]
+      }
+    },
+    {
+      "source": "order_service.py:23:4:function",
+      "target": "order_service.py:15:0:function",
+      "kind": "calls",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 25,
+        "end_line": 25,
+        "start_column": 16,
+        "end_column": 42,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "static_candidate",
+      "expression": "calculate_total",
+      "reason": "Single lexical definition; runtime rebinding/decorators may alter dispatch",
+      "details": {
+        "callee_parts": [
+          "calculate_total"
+        ]
+      }
+    },
+    {
+      "source": "order_service.py:1:0:module",
+      "target": "order_service.py:29:0:function",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 29,
+        "end_line": 34,
+        "start_column": 0,
+        "end_column": 59,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:29:0:function",
+      "target": "order_service.py:20:0:class",
+      "kind": "calls",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 30,
+        "end_line": 30,
+        "start_column": 14,
+        "end_column": 28,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "static_candidate",
+      "expression": "OrderService",
+      "reason": "Single lexical definition; runtime rebinding/decorators may alter dispatch",
+      "details": {
+        "callee_parts": [
+          "OrderService"
+        ]
+      }
+    },
+    {
+      "source": "order_service.py:29:0:function",
+      "target": "order_service.py:31:4:block",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 31,
+        "end_line": 34,
+        "start_column": 4,
+        "end_column": 59,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:31:4:block",
+      "target": "order_service.py:32:8:branch",
+      "kind": "branches",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 32,
+        "end_line": 32,
+        "start_column": 8,
+        "end_column": 35,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "try_body",
+      "reason": "Syntactic branch group; execution is not observed",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:32:8:branch",
+      "target": null,
+      "kind": "calls",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 32,
+        "end_line": 32,
+        "start_column": 15,
+        "end_column": 35,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "unresolved",
+      "expression": "service.process",
+      "reason": "Name is shadowed, rebound, imported or ambiguously defined",
+      "details": {
+        "callee_parts": [
+          "service",
+          "process"
+        ]
+      }
+    },
+    {
+      "source": "order_service.py:31:4:block",
+      "target": "order_service.py:33:4:branch",
+      "kind": "branches",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 33,
+        "end_line": 34,
+        "start_column": 4,
+        "end_column": 59,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "except_0",
+      "reason": "Syntactic branch group; execution is not observed",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:33:4:branch",
+      "target": "order_service.py:33:4:block",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 33,
+        "end_line": 34,
+        "start_column": 4,
+        "end_column": 59,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:33:4:block",
+      "target": null,
+      "kind": "calls",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 34,
+        "end_line": 34,
+        "start_column": 48,
+        "end_column": 58,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "unresolved",
+      "expression": "str",
+      "reason": "External or dynamic target; no runtime observation",
+      "details": {
+        "callee_parts": [
+          "str"
+        ]
+      }
+    },
+    {
+      "source": "order_service.py:1:0:module",
+      "target": "order_service.py:37:0:block",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 37,
+        "end_line": 38,
+        "start_column": 0,
+        "end_column": 17,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:37:0:block",
+      "target": "order_service.py:38:4:branch",
+      "kind": "branches",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 38,
+        "end_line": 38,
+        "start_column": 4,
+        "end_column": 17,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "if_true",
+      "reason": "Syntactic branch group; execution is not observed",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:38:4:branch",
+      "target": null,
+      "kind": "calls",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 38,
+        "end_line": 38,
+        "start_column": 4,
+        "end_column": 17,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "unresolved",
+      "expression": "print",
+      "reason": "External or dynamic target; no runtime observation",
+      "details": {
+        "callee_parts": [
+          "print"
+        ]
+      }
+    },
+    {
+      "source": "order_service.py:38:4:branch",
+      "target": "order_service.py:29:0:function",
+      "kind": "calls",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 38,
+        "end_line": 38,
+        "start_column": 10,
+        "end_column": 16,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "static_candidate",
+      "expression": "main",
+      "reason": "Single lexical definition; runtime rebinding/decorators may alter dispatch",
+      "details": {
+        "callee_parts": [
+          "main"
+        ]
+      }
+    }
+  ],
+  "diagnostics": [],
+  "limitations": [
+    "Structural blocks and source order are not a complete control-flow graph.",
+    "Call targets are lexical candidates, not proof of runtime dispatch.",
+    "No target code is imported or executed; there are no recorded events.",
+    "Dynamic dispatch, inheritance and external call targets remain unresolved.",
+    "Decorators, defaults and annotations are attributed to their enclosing scope.",
+    "Source snippets and docstrings may contain sensitive data; review before sharing."
+  ]
+}

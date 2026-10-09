@@ -1,0 +1,33 @@
+[project]
+name = "dreamwalk"
+version = "0.2.0"
+description = "Evidence-backed Python code exploration for architecture, dependencies, and possible execution paths."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "KEYS-A15" }]
+requires-python = ">=3.11"
+dependencies = []
+keywords = ["ast", "code-exploration", "code-visualization", "static-analysis"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.urls]
+Homepage = "https://github.com/KEYS-A15/dreamwalk"
+Issues = "https://github.com/KEYS-A15/dreamwalk/issues"
+Source = "https://github.com/KEYS-A15/dreamwalk"
+
+[project.scripts]
+dreamwalk = "dreamwalk.cli:main"
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

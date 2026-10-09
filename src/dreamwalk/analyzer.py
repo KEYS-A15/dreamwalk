@@ -1,0 +1,436 @@
+"""Parse Python source without importing it. Preserve uncertainty."""
+
+import ast
+import hashlib
+import io
+import os
+import sys
+import tokenize
+from pathlib import Path
+
+from .model import Edge, Graph, Location, Node
+
+DEFINITIONS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+SCOPES = (ast.Module, *DEFINITIONS, ast.Lambda)
+BLOCKS = (ast.If, ast.For, ast.AsyncFor, ast.While, ast.Try, ast.TryStar,
+          ast.With, ast.AsyncWith, ast.Match, ast.ExceptHandler, ast.IfExp,
+          ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp, ast.Lambda)
+IGNORED = {".git", ".venv", "venv", "__pycache__", "node_modules", ".mypy_cache",
+           ".pytest_cache", "dist", "build", ".tox", ".ruff_cache"}
+
+
+class PythonAnalyzer:
+    language = "python"
+
+    def analyze(self, root: Path, *, include_source: bool = False,
+                max_files: int = 5000, max_bytes: int = 2_000_000) -> Graph:
+        root = root.resolve(strict=True)
+        if not root.is_dir():
+            raise ValueError("Repository root must be a directory")
+        if max_files < 1 or max_bytes < 1:
+            raise ValueError("Limits must be positive")
+        graph = Graph()
+        seen = 0
+        # Do not traverse symlink directories or read symlink files.
+        for directory, dirs, files in os.walk(root, followlinks=False):
+            dirs[:] = sorted(d for d in dirs if d not in IGNORED
+                             and not (Path(directory) / d).is_symlink()
+                             and (Path(directory) / d).resolve().is_relative_to(root))
+            for name in sorted(files):
+                path = Path(directory) / name
+                if path.suffix != ".py" or path.is_symlink():
+                    continue
+                relative = path.relative_to(root).as_posix()
+                if not path.resolve().is_relative_to(root):
+                    continue
+                seen += 1
+                if seen > max_files:
+                    graph.diagnostics.append({"code": "file_limit", "message": "File limit reached"})
+                    _link_imports(graph)
+                    _link_calls(graph)
+                    return graph
+                try:
+                    raw = path.read_bytes() if path.stat().st_size <= max_bytes else None
+                    if raw is None or len(raw) > max_bytes:
+                        graph.diagnostics.append({"path": relative, "code": "file_size",
+                                                  "message": "File exceeds byte limit"})
+                        continue
+                    # tokenize honors Python encoding cookies, including Latin-1.
+                    encoding, _ = tokenize.detect_encoding(io.BytesIO(raw).readline)
+                    source = raw.decode(encoding)
+                    tree = ast.parse(source, filename=relative)
+                    graph.files.append({"path": relative, "sha256": hashlib.sha256(raw).hexdigest(),
+                                        "language": "python", "parser_python": sys.version.split()[0]})
+                    _Visitor(graph, relative, source, include_source).visit(tree)
+                except (OSError, UnicodeError, SyntaxError, RecursionError, ValueError) as error:
+                    graph.diagnostics.append({"path": relative, "code": "parse_error",
+                                              "message": str(error), "line": getattr(error, "lineno", None)})
+        if not graph.files and not graph.diagnostics:
+            graph.diagnostics.append({"code": "no_python_files", "message": "No Python files found"})
+        _link_imports(graph)
+        _link_calls(graph)
+        return graph
+
+
+def _module_index(graph: Graph) -> dict[str, set[str]]:
+    modules = {}
+    for node in graph.nodes:
+        if node.kind != "module":
+            continue
+        parts = node.location.path.removesuffix(".py").split("/")
+        variants = [parts, parts[1:]] if parts[0] == "src" else [parts]
+        for variant in variants:
+            key = ".".join(variant[:-1] if variant[-1] == "__init__" else variant)
+            modules.setdefault(key, set()).add(node.id)
+    return modules
+
+
+def _absolute_module(graph: Graph, source_id: str, expression: str) -> str | None:
+    if not expression.startswith("."):
+        return expression
+    level = len(expression) - len(expression.lstrip("."))
+    parts = graph.node(source_id).location.path.removesuffix(".py").split("/")
+    if parts[0] == "src":
+        parts = parts[1:]
+    package = parts[:-1]
+    if level > len(package):
+        return None
+    prefix = package[:len(package) - level + 1]
+    return ".".join(prefix + ([expression[level:]] if expression[level:] else []))
+
+
+def _link_imports(graph: Graph):
+    """Connect unambiguous local import modules, including conventional src layouts."""
+    modules = _module_index(graph)
+    for edge in graph.edges:
+        if edge.kind != "imports":
+            continue
+        target = _absolute_module(graph, edge.source, edge.expression)
+        if target is None:
+            edge.reason = "Relative import escapes the analyzed package"
+            continue
+        candidates = modules.get(target, set())
+        if len(candidates) == 1:
+            edge.target = next(iter(candidates))
+            edge.status = "static_candidate"
+            edge.reason = "Local module path candidate; runtime import search path may differ"
+
+
+def _link_calls(graph: Graph):
+    """Resolve only unambiguous calls through statically linked local imports."""
+    modules = _module_index(graph)
+    exports = {}
+    for node in graph.nodes:
+        if node.parent_id and node.kind in {"function", "class"}:
+            parent = graph.node(node.parent_id)
+            if parent.kind == "module":
+                exports.setdefault((parent.id, node.name), set()).add(node.id)
+    for edge in graph.edges:
+        binding = edge.details.get("import_binding") if edge.kind == "calls" else None
+        if not binding:
+            continue
+        module_name = _absolute_module(graph, edge.source, binding["module"])
+        members = edge.details.get("member_path", [])
+        symbol = binding.get("symbol")
+        if binding["kind"] == "module":
+            tail = binding.get("tail", [])
+            if members[:len(tail)] != tail:
+                continue
+            members = members[len(tail):]
+            if len(members) != 1:
+                continue
+            symbol, members = members[0], []
+        elif members:
+            base_modules = modules.get(module_name, set()) if module_name else set()
+            if any(exports.get((module_id, symbol)) for module_id in base_modules):
+                continue
+            module_name = f"{module_name}.{symbol}" if module_name else None
+            symbol, members = members[0], members[1:]
+        if module_name is None or members or not symbol:
+            continue
+        module_candidates = modules.get(module_name, set())
+        candidates = {target for module_id in module_candidates
+                      for target in exports.get((module_id, symbol), set())}
+        if len(module_candidates) == 1 and len(candidates) == 1:
+            edge.target = next(iter(candidates))
+            edge.status = "static_candidate"
+            edge.reason = ("Unambiguous local imported definition; control flow, runtime rebinding, "
+                           "decorators and import search paths may alter dispatch")
+
+
+class _Visitor(ast.NodeVisitor):
+    def __init__(self, graph: Graph, path: str, source: str, include_source: bool):
+        self.graph, self.path, self.source = graph, path, source
+        self.include_source = include_source
+        self.parents: list[Node] = []
+        self.scopes: list[dict] = []
+        self.pending: list[tuple[Edge, list[dict]]] = []
+
+    def location(self, node: ast.AST) -> Location:
+        return Location(self.path, getattr(node, "lineno", 1),
+                        getattr(node, "end_lineno", len(self.source.splitlines()) or 1),
+                        getattr(node, "col_offset", 0), getattr(node, "end_col_offset", 0))
+
+    def add(self, node: ast.AST, kind: str, name: str, facts: dict) -> Node:
+        loc = self.location(node)
+        parent = self.parents[-1] if self.parents else None
+        qualified = f"{parent.qualified_name}.{name}" if parent else name
+        node_id = f"{self.path}:{loc.start_line}:{loc.start_column}:{kind}"
+        if self.include_source:
+            facts["source"] = ast.get_source_segment(self.source, node) or self.source
+        result = Node(node_id, kind, name, qualified, "python", loc,
+                      parent.id if parent else None, facts)
+        self.graph.nodes.append(result)
+        if parent:
+            self.graph.edges.append(Edge(parent.id, result.id, "contains", loc))
+        return result
+
+    def scope(self, node: ast.AST, owner: Node) -> dict:
+        symbols: dict[str, list] = {}
+
+        def bind(name: str, target: str | None = None):
+            symbols.setdefault(name, []).append(target)
+
+        def scan(item: ast.AST):
+            if isinstance(item, DEFINITIONS):
+                loc = self.location(item)
+                kind = "class" if isinstance(item, ast.ClassDef) else "function"
+                bind(item.name, f"{self.path}:{loc.start_line}:{loc.start_column}:{kind}")
+                # Defaults/decorators can bind names in the enclosing scope.
+                for decorator in item.decorator_list:
+                    scan(decorator)
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    for default in item.args.defaults + [x for x in item.args.kw_defaults if x]:
+                        scan(default)
+                return
+            if isinstance(item, ast.Lambda):
+                return
+            if isinstance(item, ast.Name) and isinstance(item.ctx, (ast.Store, ast.Del)):
+                bind(item.id)
+            if isinstance(item, ast.Import):
+                for alias in item.names:
+                    parts = alias.name.split(".")
+                    bind(alias.asname or parts[0], {"kind": "module", "module": alias.name,
+                                                   "tail": [] if alias.asname else parts[1:]})
+            if isinstance(item, ast.ImportFrom):
+                for alias in item.names:
+                    if alias.name == "*":
+                        bind("*")
+                    else:
+                        bind(alias.asname or alias.name,
+                             {"kind": "from", "module": "." * item.level + (item.module or ""),
+                              "symbol": alias.name})
+            if isinstance(item, ast.ExceptHandler) and item.name:
+                bind(item.name)
+            if isinstance(item, (ast.Global, ast.Nonlocal)):
+                for name in item.names:
+                    bind(name)
+            if isinstance(item, (ast.MatchAs, ast.MatchStar)) and item.name:
+                bind(item.name)
+            if isinstance(item, ast.MatchMapping) and item.rest:
+                bind(item.rest)
+            for child in ast.iter_child_nodes(item):
+                scan(child)
+
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            for arg in node.args.posonlyargs + node.args.args + node.args.kwonlyargs:
+                bind(arg.arg)
+            for arg in (node.args.vararg, node.args.kwarg):
+                if arg:
+                    bind(arg.arg)
+        body = node.body if isinstance(node.body, list) else [node.body]
+        for statement in body:
+            scan(statement)
+        return {"symbols": symbols, "owner": owner, "class": isinstance(node, ast.ClassDef)}
+
+    def visit_Module(self, node: ast.Module):
+        owner = self.add(node, "module", self.path.removesuffix(".py").replace("/", "."),
+                         {"docstring": ast.get_docstring(node)})
+        self.parents.append(owner)
+        self.scopes.append(self.scope(node, owner))
+        self.generic_visit(node)
+        self.scopes.pop()
+        self.parents.pop()
+        known = {n.id for n in self.graph.nodes}
+        for edge, scopes in self.pending:
+            parts = edge.details["callee_parts"]
+            for scope in reversed(scopes):
+                if scope["class"]:
+                    continue
+                if "*" in scope["symbols"]:
+                    edge.reason = "Wildcard import may replace local bindings"
+                    break
+                bindings = scope["symbols"].get(parts[0])
+                if bindings:
+                    if len(bindings) == 1 and isinstance(bindings[0], str) and bindings[0] in known and len(parts) == 1:
+                        edge.target = bindings[0]
+                        edge.status = "static_candidate"
+                        edge.reason = "Single lexical definition; runtime rebinding/decorators may alter dispatch"
+                    elif len(bindings) == 1 and isinstance(bindings[0], dict):
+                        edge.details["import_binding"] = bindings[0]
+                        edge.details["member_path"] = parts[1:]
+                        edge.reason = "Imported binding awaits local module and symbol resolution"
+                    else:
+                        edge.reason = "Name is shadowed, rebound, imported or ambiguously defined"
+                    break
+
+    def visit_definition(self, node):
+        is_class = isinstance(node, ast.ClassDef)
+        # Definition-time expressions belong to the enclosing execution context.
+        for decorator in node.decorator_list:
+            self.visit(decorator)
+        if is_class:
+            for expr in node.bases + [k.value for k in node.keywords]:
+                self.visit(expr)
+        else:
+            self.visit(node.args)
+            if node.returns:
+                self.visit(node.returns)
+        facts = {"docstring": ast.get_docstring(node),
+                 "decorators": [ast.unparse(d) for d in node.decorator_list]}
+        if is_class:
+            facts["bases"] = [ast.unparse(b) for b in node.bases]
+        else:
+            facts.update({"parameters": ast.unparse(node.args),
+                          "return_annotation": ast.unparse(node.returns) if node.returns else None,
+                          "async": isinstance(node, ast.AsyncFunctionDef),
+                          "returns": [], "raises": [], "assignments": [], "awaits": []})
+        owner = self.add(node, "class" if is_class else "function", node.name, facts)
+        self.parents.append(owner)
+        self.scopes.append(self.scope(node, owner))
+        for statement in node.body:
+            self.visit(statement)
+        self.scopes.pop()
+        self.parents.pop()
+
+    visit_FunctionDef = visit_definition
+    visit_AsyncFunctionDef = visit_definition
+    visit_ClassDef = visit_definition
+
+    def generic_visit(self, node):
+        if isinstance(node, BLOCKS):
+            facts = {"syntax_kind": type(node).__name__}
+            for field in ("test", "iter", "subject", "type"):
+                value = getattr(node, field, None)
+                if value is not None:
+                    facts[field] = ast.unparse(value)
+            groups = self.branch_groups(node)
+            facts["body_groups"] = [label for label, _ in groups]
+            owner = self.add(node, "block", f"{type(node).__name__}@{node.lineno}", facts)
+            self.parents.append(owner)
+            # ponytail: calls in implicit scopes stay unresolved until scope/closure analysis exists.
+            implicit = isinstance(node, (ast.Lambda, ast.ListComp, ast.SetComp,
+                                         ast.DictComp, ast.GeneratorExp))
+            if implicit:
+                self.scopes.append({"symbols": {}, "owner": owner, "class": False, "implicit": True})
+            if groups:
+                grouped = ({"body", "orelse"} if isinstance(node, ast.IfExp) else
+                           {field for field in ("body", "orelse", "handlers", "finalbody", "cases")
+                            if hasattr(node, field)})
+                for field, value in ast.iter_fields(node):
+                    if field in grouped:
+                        continue
+                    if isinstance(value, ast.AST):
+                        self.visit(value)
+                    elif isinstance(value, list):
+                        for item in value:
+                            if isinstance(item, ast.AST):
+                                self.visit(item)
+                for order, (label, items) in enumerate(groups):
+                    branch = self.add_branch(owner, label, order, items)
+                    self.parents.append(branch)
+                    for item in items:
+                        self.visit(item)
+                    self.parents.pop()
+            else:
+                super().generic_visit(node)
+            if implicit:
+                self.scopes.pop()
+            self.parents.pop()
+        else:
+            super().generic_visit(node)
+
+    def visit_Call(self, node: ast.Call):
+        parts = self.call_parts(node.func)
+        edge = Edge(self.parents[-1].id, None, "calls", self.location(node), "unresolved",
+                    ast.unparse(node.func), "External or dynamic target; no runtime observation",
+                    {"callee_parts": parts} if parts else {})
+        self.graph.edges.append(edge)
+        if parts and not any(s.get("implicit") for s in self.scopes):
+            self.pending.append((edge, list(self.scopes)))
+        self.generic_visit(node)
+
+    @staticmethod
+    def call_parts(node: ast.AST) -> list[str]:
+        parts = []
+        while isinstance(node, ast.Attribute):
+            parts.append(node.attr)
+            node = node.value
+        return [node.id, *reversed(parts)] if isinstance(node, ast.Name) else []
+
+    def branch_groups(self, node: ast.AST) -> list[tuple[str, list[ast.AST]]]:
+        groups = []
+        if isinstance(node, ast.If):
+            groups = [("if_true", node.body), ("if_false", node.orelse)]
+        elif isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
+            groups = [("loop_body", node.body), ("loop_else", node.orelse)]
+        elif isinstance(node, (ast.Try, ast.TryStar)):
+            groups = [("try_body", node.body)]
+            groups += [(f"except_{index}", [handler]) for index, handler in enumerate(node.handlers)]
+            groups += [("try_else", node.orelse), ("finally", node.finalbody)]
+        elif isinstance(node, ast.Match):
+            groups = [(f"case_{index}", [case]) for index, case in enumerate(node.cases)]
+        elif isinstance(node, ast.IfExp):
+            groups = [("if_true", [node.body]), ("if_false", [node.orelse])]
+        return [(label, items) for label, items in groups if items]
+
+    def add_branch(self, owner: Node, label: str, order: int, items: list[ast.AST]) -> Node:
+        first = items[0].pattern if isinstance(items[0], ast.match_case) else items[0]
+        last_item = items[-1]
+        last = (last_item.body[-1] if isinstance(last_item, ast.match_case) and last_item.body
+                else last_item.pattern if isinstance(last_item, ast.match_case) else last_item)
+        start, end = self.location(first), self.location(last)
+        loc = Location(self.path, start.start_line, end.end_line,
+                       start.start_column, end.end_column)
+        branch = Node(f"{self.path}:{loc.start_line}:{loc.start_column}:branch", "branch", label,
+                      f"{owner.qualified_name}.{label}", "python", loc, owner.id,
+                      {"role": label, "order": order})
+        self.graph.nodes.append(branch)
+        self.graph.edges.append(Edge(owner.id, branch.id, "branches", loc, expression=label,
+                                     reason="Syntactic branch group; execution is not observed"))
+        return branch
+
+    def record_fact(self, node, key):
+        owner = self.scopes[-1]["owner"]
+        if key in owner.facts:
+            owner.facts[key].append({"expression": ast.unparse(node),
+                                     "line": node.lineno})
+        self.generic_visit(node)
+
+    def visit_Return(self, node):
+        self.record_fact(node, "returns")
+
+    def visit_Raise(self, node):
+        self.record_fact(node, "raises")
+
+    def visit_Assign(self, node):
+        self.record_fact(node, "assignments")
+
+    visit_AnnAssign = visit_Assign
+    visit_AugAssign = visit_Assign
+
+    def visit_Await(self, node):
+        self.record_fact(node, "awaits")
+
+    def visit_Import(self, node):
+        for alias in node.names:
+            self.graph.edges.append(Edge(self.parents[-1].id, None, "imports", self.location(node),
+                                         "syntax", alias.name, "Import statement; module not loaded",
+                                         {"binding": alias.asname or alias.name.split(".")[0]}))
+
+    def visit_ImportFrom(self, node):
+        expression = "." * node.level + (node.module or "")
+        for alias in node.names:
+            self.graph.edges.append(Edge(self.parents[-1].id, None, "imports", self.location(node),
+                                         "syntax", expression, "Import statement; module not loaded",
+                                         {"binding": alias.asname or alias.name, "symbol": alias.name}))
