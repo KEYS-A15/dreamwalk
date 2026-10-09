@@ -42,8 +42,11 @@ diagnostics. Invalid requests return exit code 2.
 ## What works
 
 - Modules, classes, functions, async functions and nested structural blocks.
-- Local import module candidates, conservative same-file and imported call candidates.
+- Local import module candidates, conservative same-file, imported and explicit
+  re-exported call candidates.
 - Explicit branch nodes for present `if`/loop/`try`/`match`/conditional-expression arms.
+- A static control-flow subset with function entry, sequential statements, `if`
+  branches, implicit returns and explicit `return`/`raise` terminals.
 - Parameters, annotations, author docstrings, returns, assignments, awaits and raises.
 - Relative source spans, UTF-8 byte columns and per-file SHA-256 identity.
 - Function/block isolation with adjacent callers, callees and containers.
@@ -76,7 +79,7 @@ are unavailable, use it without resolving build dependencies:
 
 ```powershell
 uv venv --python 3.11
-uv pip install --offline dist\dreamwalk-0.2.0-py3-none-any.whl
+uv pip install --offline dist\dreamwalk-0.3.0-py3-none-any.whl
 uv run --no-sync dreamwalk analyze examples
 uv run --no-sync python -m unittest discover -s tests -v
 ```
@@ -86,14 +89,14 @@ snapshot; source changes require rebuilding or switching to an editable install.
 
 ## Evidence rules
 
-`schema_version: 1.1` defines nodes, edges, files, diagnostics and limitations.
+`schema_version: 1.2` defines nodes, edges, files, diagnostics and limitations.
 IDs are relative path + source position + kind; they are snapshot IDs, not stable
 identities across edits. File hashes establish exact file versions.
 
-- **syntax:** directly extracted containment or import syntax.
+- **syntax:** directly extracted containment, branch or import syntax.
 - **static_candidate:** one lexical or directly imported local function/class
-  definition matches a call; runtime control flow, rebinding and decorators may
-  still change the target.
+  definition matches a call, or a possible `flows_to` control transfer exists;
+  runtime control flow, rebinding and decorators may still change the result.
 - **unresolved:** external imports, dynamic attribute/method calls, ambiguous or
   shadowed names, and implicit comprehension/lambda scopes.
 
@@ -102,11 +105,14 @@ nested definitions. Definition-time calls belong to the enclosing scope. A
 function's focus graph includes related blocks; its explanation lists directly
 attached calls and child IDs for further exploration.
 
-**This is a structural map, not a complete control-flow graph.** `contains` and
-`branches` do not mean “executes next.” No observed runtime edges exist yet.
+**This is not a complete control-flow graph.** Only `flows_to` means a possible
+static control transfer; `contains` and `branches` remain structural. Loops,
+`try`, `with` and `match` are opaque flow nodes with unresolved fallthrough.
+No observed runtime edges exist yet.
 Imported modules and their unambiguous top-level functions/classes can be static
-candidates. Inheritance, instance dispatch, re-exports and multi-hop attribute
-calls remain unresolved. Conditional definitions, `exec`, reflection,
+candidates, including explicit `from` re-export chains. Inheritance, instance
+dispatch, wildcard re-exports and multi-hop attribute calls remain unresolved.
+Conditional definitions, `exec`, reflection,
 monkey-patching and global/nonlocal rebinding require further analysis.
 
 Python syntax support follows the interpreter used to run Dreamwalk. Python 3.11
@@ -119,8 +125,8 @@ contain secrets. Review JSON exports before publication.
 
 ## Next backend milestones
 
-1. Extend cross-module candidates beyond direct imports, then build a tested
-   control-flow graph for a documented Python subset.
+1. Extend control flow through loops, `try`/`finally`, `with` and `match`, with
+   explicit break/continue and exception paths.
 2. Opt-in recording of a user-specified command, with separate observed evidence
    and validation for recursion, exceptions, generators and async execution.
 3. Grounded semantic explanations with source citations and an optional model.

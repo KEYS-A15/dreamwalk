@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.1",
-  "analyzer_version": "0.2.0",
+  "schema_version": "1.2",
+  "analyzer_version": "0.3.0",
   "languages": [
     "python"
   ],
@@ -396,6 +396,222 @@
         "role": "if_true",
         "order": 0
       }
+    },
+    {
+      "id": "order_service.py:8:0:exit",
+      "kind": "exit",
+      "name": "implicit_return",
+      "qualified_name": "order_service.validate_order.implicit_return",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 12,
+        "end_line": 12,
+        "start_column": 17,
+        "end_column": 17,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:8:0:function",
+      "facts": {
+        "syntax_kind": "implicit_return"
+      }
+    },
+    {
+      "id": "order_service.py:12:4:statement",
+      "kind": "statement",
+      "name": "Return@12",
+      "qualified_name": "order_service.validate_order.Return@12",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 12,
+        "end_line": 12,
+        "start_column": 4,
+        "end_column": 17,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:8:0:function",
+      "facts": {
+        "syntax_kind": "Return",
+        "terminal": true
+      }
+    },
+    {
+      "id": "order_service.py:11:8:statement",
+      "kind": "statement",
+      "name": "Raise@11",
+      "qualified_name": "order_service.validate_order.If@10.if_true.Raise@11",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 11,
+        "end_line": 11,
+        "start_column": 8,
+        "end_column": 51,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:11:8:branch",
+      "facts": {
+        "syntax_kind": "Raise",
+        "terminal": true
+      }
+    },
+    {
+      "id": "order_service.py:15:0:exit",
+      "kind": "exit",
+      "name": "implicit_return",
+      "qualified_name": "order_service.calculate_total.implicit_return",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 17,
+        "end_line": 17,
+        "start_column": 44,
+        "end_column": 44,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:15:0:function",
+      "facts": {
+        "syntax_kind": "implicit_return"
+      }
+    },
+    {
+      "id": "order_service.py:17:4:statement",
+      "kind": "statement",
+      "name": "Return@17",
+      "qualified_name": "order_service.calculate_total.Return@17",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 17,
+        "end_line": 17,
+        "start_column": 4,
+        "end_column": 44,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:15:0:function",
+      "facts": {
+        "syntax_kind": "Return",
+        "terminal": true
+      }
+    },
+    {
+      "id": "order_service.py:29:0:exit",
+      "kind": "exit",
+      "name": "implicit_return",
+      "qualified_name": "order_service.main.implicit_return",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 34,
+        "end_line": 34,
+        "start_column": 59,
+        "end_column": 59,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:29:0:function",
+      "facts": {
+        "syntax_kind": "implicit_return"
+      }
+    },
+    {
+      "id": "order_service.py:30:4:statement",
+      "kind": "statement",
+      "name": "Assign@30",
+      "qualified_name": "order_service.main.Assign@30",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 30,
+        "end_line": 30,
+        "start_column": 4,
+        "end_column": 28,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:29:0:function",
+      "facts": {
+        "syntax_kind": "Assign",
+        "terminal": false
+      }
+    },
+    {
+      "id": "order_service.py:23:4:exit",
+      "kind": "exit",
+      "name": "implicit_return",
+      "qualified_name": "order_service.OrderService.process.implicit_return",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 26,
+        "end_line": 26,
+        "start_column": 53,
+        "end_column": 53,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:23:4:function",
+      "facts": {
+        "syntax_kind": "implicit_return"
+      }
+    },
+    {
+      "id": "order_service.py:26:8:statement",
+      "kind": "statement",
+      "name": "Return@26",
+      "qualified_name": "order_service.OrderService.process.Return@26",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 26,
+        "end_line": 26,
+        "start_column": 8,
+        "end_column": 53,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:23:4:function",
+      "facts": {
+        "syntax_kind": "Return",
+        "terminal": true
+      }
+    },
+    {
+      "id": "order_service.py:25:8:statement",
+      "kind": "statement",
+      "name": "Assign@25",
+      "qualified_name": "order_service.OrderService.process.Assign@25",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 25,
+        "end_line": 25,
+        "start_column": 8,
+        "end_column": 42,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:23:4:function",
+      "facts": {
+        "syntax_kind": "Assign",
+        "terminal": false
+      }
+    },
+    {
+      "id": "order_service.py:24:8:statement",
+      "kind": "statement",
+      "name": "Assign@24",
+      "qualified_name": "order_service.OrderService.process.Assign@24",
+      "language": "python",
+      "location": {
+        "path": "order_service.py",
+        "start_line": 24,
+        "end_line": 24,
+        "start_column": 8,
+        "end_column": 42,
+        "column_unit": "utf8_bytes"
+      },
+      "parent_id": "order_service.py:23:4:function",
+      "facts": {
+        "syntax_kind": "Assign",
+        "terminal": false
+      }
     }
   ],
   "edges": [
@@ -468,7 +684,7 @@
       "details": {}
     },
     {
-      "source": "order_service.py:11:8:branch",
+      "source": "order_service.py:11:8:statement",
       "target": "order_service.py:4:0:class",
       "kind": "calls",
       "evidence": {
@@ -506,7 +722,7 @@
       "details": {}
     },
     {
-      "source": "order_service.py:15:0:function",
+      "source": "order_service.py:17:4:statement",
       "target": null,
       "kind": "calls",
       "evidence": {
@@ -561,7 +777,7 @@
       "details": {}
     },
     {
-      "source": "order_service.py:23:4:function",
+      "source": "order_service.py:24:8:statement",
       "target": "order_service.py:8:0:function",
       "kind": "calls",
       "evidence": {
@@ -582,7 +798,7 @@
       }
     },
     {
-      "source": "order_service.py:23:4:function",
+      "source": "order_service.py:25:8:statement",
       "target": "order_service.py:15:0:function",
       "kind": "calls",
       "evidence": {
@@ -620,7 +836,7 @@
       "details": {}
     },
     {
-      "source": "order_service.py:29:0:function",
+      "source": "order_service.py:30:4:statement",
       "target": "order_service.py:20:0:class",
       "kind": "calls",
       "evidence": {
@@ -826,11 +1042,385 @@
           "main"
         ]
       }
+    },
+    {
+      "source": "order_service.py:8:0:function",
+      "target": "order_service.py:8:0:exit",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 12,
+        "end_line": 12,
+        "start_column": 17,
+        "end_column": 17,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:8:0:function",
+      "target": "order_service.py:12:4:statement",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 12,
+        "end_line": 12,
+        "start_column": 4,
+        "end_column": 17,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:11:8:branch",
+      "target": "order_service.py:11:8:statement",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 11,
+        "end_line": 11,
+        "start_column": 8,
+        "end_column": 51,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:10:4:block",
+      "target": "order_service.py:11:8:branch",
+      "kind": "flows_to",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 11,
+        "end_line": 11,
+        "start_column": 8,
+        "end_column": 51,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "static_candidate",
+      "expression": "if_true",
+      "reason": "Possible static control transfer; not observed",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:11:8:branch",
+      "target": "order_service.py:11:8:statement",
+      "kind": "flows_to",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 11,
+        "end_line": 11,
+        "start_column": 8,
+        "end_column": 51,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "static_candidate",
+      "expression": "branch_entry",
+      "reason": "Possible static control transfer; not observed",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:10:4:block",
+      "target": "order_service.py:12:4:statement",
+      "kind": "flows_to",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 10,
+        "end_line": 11,
+        "start_column": 4,
+        "end_column": 51,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "static_candidate",
+      "expression": "if_false",
+      "reason": "Possible static control transfer; not observed",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:8:0:function",
+      "target": "order_service.py:10:4:block",
+      "kind": "flows_to",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 8,
+        "end_line": 12,
+        "start_column": 0,
+        "end_column": 17,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "static_candidate",
+      "expression": "entry",
+      "reason": "Possible static control transfer; not observed",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:15:0:function",
+      "target": "order_service.py:15:0:exit",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 17,
+        "end_line": 17,
+        "start_column": 44,
+        "end_column": 44,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:15:0:function",
+      "target": "order_service.py:17:4:statement",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 17,
+        "end_line": 17,
+        "start_column": 4,
+        "end_column": 44,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:15:0:function",
+      "target": "order_service.py:17:4:statement",
+      "kind": "flows_to",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 15,
+        "end_line": 17,
+        "start_column": 0,
+        "end_column": 44,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "static_candidate",
+      "expression": "entry",
+      "reason": "Possible static control transfer; not observed",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:29:0:function",
+      "target": "order_service.py:29:0:exit",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 34,
+        "end_line": 34,
+        "start_column": 59,
+        "end_column": 59,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:31:4:block",
+      "target": "order_service.py:29:0:exit",
+      "kind": "flows_to",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 31,
+        "end_line": 34,
+        "start_column": 4,
+        "end_column": 59,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "unresolved",
+      "expression": "fallthrough",
+      "reason": "Try flow is outside the documented CFG subset",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:29:0:function",
+      "target": "order_service.py:30:4:statement",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 30,
+        "end_line": 30,
+        "start_column": 4,
+        "end_column": 28,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:30:4:statement",
+      "target": "order_service.py:31:4:block",
+      "kind": "flows_to",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 30,
+        "end_line": 30,
+        "start_column": 4,
+        "end_column": 28,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "static_candidate",
+      "expression": "next",
+      "reason": "Possible static control transfer; not observed",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:29:0:function",
+      "target": "order_service.py:30:4:statement",
+      "kind": "flows_to",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 29,
+        "end_line": 34,
+        "start_column": 0,
+        "end_column": 59,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "static_candidate",
+      "expression": "entry",
+      "reason": "Possible static control transfer; not observed",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:23:4:function",
+      "target": "order_service.py:23:4:exit",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 26,
+        "end_line": 26,
+        "start_column": 53,
+        "end_column": 53,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:23:4:function",
+      "target": "order_service.py:26:8:statement",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 26,
+        "end_line": 26,
+        "start_column": 8,
+        "end_column": 53,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:23:4:function",
+      "target": "order_service.py:25:8:statement",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 25,
+        "end_line": 25,
+        "start_column": 8,
+        "end_column": 42,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:25:8:statement",
+      "target": "order_service.py:26:8:statement",
+      "kind": "flows_to",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 25,
+        "end_line": 25,
+        "start_column": 8,
+        "end_column": 42,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "static_candidate",
+      "expression": "next",
+      "reason": "Possible static control transfer; not observed",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:23:4:function",
+      "target": "order_service.py:24:8:statement",
+      "kind": "contains",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 24,
+        "end_line": 24,
+        "start_column": 8,
+        "end_column": 42,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "syntax",
+      "expression": "",
+      "reason": "",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:24:8:statement",
+      "target": "order_service.py:25:8:statement",
+      "kind": "flows_to",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 24,
+        "end_line": 24,
+        "start_column": 8,
+        "end_column": 42,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "static_candidate",
+      "expression": "next",
+      "reason": "Possible static control transfer; not observed",
+      "details": {}
+    },
+    {
+      "source": "order_service.py:23:4:function",
+      "target": "order_service.py:24:8:statement",
+      "kind": "flows_to",
+      "evidence": {
+        "path": "order_service.py",
+        "start_line": 23,
+        "end_line": 26,
+        "start_column": 4,
+        "end_column": 53,
+        "column_unit": "utf8_bytes"
+      },
+      "status": "static_candidate",
+      "expression": "entry",
+      "reason": "Possible static control transfer; not observed",
+      "details": {}
     }
   ],
   "diagnostics": [],
   "limitations": [
-    "Structural blocks and source order are not a complete control-flow graph.",
+    "Control flow covers function entry, sequencing, if branches and return/raise terminals only.",
     "Call targets are lexical candidates, not proof of runtime dispatch.",
     "No target code is imported or executed; there are no recorded events.",
     "Dynamic dispatch, inheritance and external call targets remain unresolved.",

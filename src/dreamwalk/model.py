@@ -39,15 +39,15 @@ class Edge:
 
 @dataclass
 class Graph:
-    schema_version: str = "1.1"
-    analyzer_version: str = "0.2.0"
+    schema_version: str = "1.2"
+    analyzer_version: str = "0.3.0"
     languages: list[str] = field(default_factory=lambda: ["python"])
     files: list[dict] = field(default_factory=list)
     nodes: list[Node] = field(default_factory=list)
     edges: list[Edge] = field(default_factory=list)
     diagnostics: list[dict] = field(default_factory=list)
     limitations: list[str] = field(default_factory=lambda: [
-        "Structural blocks and source order are not a complete control-flow graph.",
+        "Control flow covers function entry, sequencing, if branches and return/raise terminals only.",
         "Call targets are lexical candidates, not proof of runtime dispatch.",
         "No target code is imported or executed; there are no recorded events.",
         "Dynamic dispatch, inheritance and external call targets remain unresolved.",
@@ -85,7 +85,15 @@ class Graph:
 
     def explain(self, node_id: str) -> dict:
         node = self.node(node_id)
-        calls = [asdict(e) for e in self.edges if e.source == node_id and e.kind == "calls"]
+        related = {node_id}
+        for child in self.nodes:
+            parent_id = child.parent_id
+            while parent_id:
+                if parent_id == node_id:
+                    related.add(child.id)
+                    break
+                parent_id = self.node(parent_id).parent_id
+        calls = [asdict(e) for e in self.edges if e.source in related and e.kind == "calls"]
         children = [n.id for n in self.nodes if n.parent_id == node_id]
         return {
             "node_id": node_id,

@@ -121,6 +121,28 @@ class AnalyzerTests(unittest.TestCase):
         calls = [e for e in graph.edges if e.kind == "calls"]
         self.assertTrue(all(edge.target is None for edge in calls))
 
+    def test_cross_file_reexport_call(self):
+        package = self.root / "pkg"
+        package.mkdir()
+        (package / "__init__.py").write_text("from .helper import f as exported\n", encoding="utf-8")
+        (package / "helper.py").write_text("def f(): return 1\n", encoding="utf-8")
+        graph = self.analyze("from pkg import exported\nexported()\n")
+        call = next(edge for edge in graph.edges if edge.kind == "calls")
+        self.assertEqual(graph.node(call.target).qualified_name, "pkg.helper.f")
+
+    def test_documented_control_flow_subset(self):
+        graph = self.analyze("def choose(x):\n    value = 0\n    if x:\n        return 1\n    value = 2\n    return value\n")
+        function = next(node for node in graph.nodes if node.name == "choose")
+        statements = [node for node in graph.nodes if node.kind == "statement"]
+        flows = [edge for edge in graph.edges if edge.kind == "flows_to"]
+        self.assertEqual({node.facts["syntax_kind"] for node in statements},
+                         {"Assign", "Return"})
+        self.assertTrue(any(edge.source == function.id and edge.expression == "entry" for edge in flows))
+        self.assertTrue(any(edge.expression == "if_false" for edge in flows))
+        self.assertFalse(any(edge.source == next(node.id for node in statements
+                                                 if node.location.start_line == 4)
+                             for edge in flows))
+
     def test_encoding_and_unicode_source_span(self):
         (self.root / "latin.py").write_bytes(b"# coding: latin-1\nx = 'caf\xe9'\n")
         graph = self.analyze("def café():\n    return '日本'\n", include_source=True)
@@ -133,6 +155,7 @@ class AnalyzerTests(unittest.TestCase):
         node = next(n for n in graph.nodes if n.name == "a")
         self.assertEqual(len(graph.focus(node.id, 0)["nodes"]), 1)
         self.assertEqual(graph.explain(node.id)["provenance"], "deterministic_ast_facts")
+        self.assertEqual(len(graph.explain(node.id)["calls"]), 1)
         with self.assertRaises(ValueError):
             graph.focus(node.id, 6)
 
@@ -158,7 +181,7 @@ class AnalyzerTests(unittest.TestCase):
         try:
             base = f"http://127.0.0.1:{server.server_port}"
             with urlopen(base + "/graph", timeout=3) as response:
-                self.assertEqual(json.load(response)["schema_version"], "1.1")
+                self.assertEqual(json.load(response)["schema_version"], "1.2")
             for suffix, status in [("/focus", 404), ("/missing", 404),
                                    ("/focus?id=app.py:1:0:function&depth=10", 400)]:
                 with self.assertRaises(HTTPError) as caught:

@@ -62,6 +62,7 @@ class PythonAnalyzer:
                     graph.files.append({"path": relative, "sha256": hashlib.sha256(raw).hexdigest(),
                                         "language": "python", "parser_python": sys.version.split()[0]})
                     _Visitor(graph, relative, source, include_source).visit(tree)
+                    _ControlFlow(graph, relative, source, include_source).build(tree)
                 except (OSError, UnicodeError, SyntaxError, RecursionError, ValueError) as error:
                     graph.diagnostics.append({"path": relative, "code": "parse_error",
                                               "message": str(error), "line": getattr(error, "lineno", None)})
@@ -125,6 +126,23 @@ def _link_calls(graph: Graph):
             parent = graph.node(node.parent_id)
             if parent.kind == "module":
                 exports.setdefault((parent.id, node.name), set()).add(node.id)
+    for _ in graph.nodes:
+        changed = False
+        for edge in graph.edges:
+            if (edge.kind != "imports" or not edge.target or
+                    graph.node(edge.source).kind != "module"):
+                continue
+            symbol = edge.details.get("symbol")
+            binding = edge.details.get("binding")
+            if not symbol or symbol == "*" or not binding:
+                continue
+            candidates = exports.get((edge.target, symbol), set())
+            destination = exports.setdefault((edge.source, binding), set())
+            before = len(destination)
+            destination.update(candidates)
+            changed |= len(destination) != before
+        if not changed:
+            break
     for edge in graph.edges:
         binding = edge.details.get("import_binding") if edge.kind == "calls" else None
         if not binding:
@@ -156,6 +174,110 @@ def _link_calls(graph: Graph):
             edge.status = "static_candidate"
             edge.reason = ("Unambiguous local imported definition; control flow, runtime rebinding, "
                            "decorators and import search paths may alter dispatch")
+
+
+class _ControlFlow:
+    """Add a conservative function CFG for sequencing, if branches and exits."""
+
+    def __init__(self, graph: Graph, path: str, source: str, include_source: bool):
+        self.graph, self.path, self.source = graph, path, source
+        self.include_source = include_source
+
+    def location(self, node: ast.AST) -> Location:
+        return Location(self.path, node.lineno, node.end_lineno,
+                        node.col_offset, node.end_col_offset)
+
+    def build(self, tree: ast.AST):
+        for definition in ast.walk(tree):
+            if not isinstance(definition, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            owner = self.graph.node(self.node_id(definition, "function"))
+            exit_node = self.add_exit(owner)
+            entry = self.sequence(definition.body, owner, exit_node.id)
+            if entry:
+                self.flow(owner.id, entry, owner.location, "entry")
+        statements = [node for node in self.graph.nodes
+                      if node.kind == "statement" and node.location.path == self.path]
+        for edge in self.graph.edges:
+            if edge.kind != "calls" or edge.evidence.path != self.path:
+                continue
+            candidates = [node for node in statements
+                          if (node.location.start_line, node.location.start_column)
+                          <= (edge.evidence.start_line, edge.evidence.start_column)
+                          and (edge.evidence.end_line, edge.evidence.end_column)
+                          <= (node.location.end_line, node.location.end_column)]
+            if candidates:
+                edge.source = min(candidates,
+                                  key=lambda node: node.location.end_line - node.location.start_line).id
+
+    def sequence(self, statements: list[ast.stmt], parent: Node, successor: str | None) -> str | None:
+        entry = successor
+        for statement in reversed(statements):
+            if isinstance(statement, DEFINITIONS):
+                continue
+            if (isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Constant)
+                    and isinstance(statement.value.value, str)):
+                continue
+            if isinstance(statement, ast.If):
+                entry = self.if_flow(statement, entry)
+                continue
+            if isinstance(statement, BLOCKS):
+                block_id = self.node_id(statement, "block")
+                if entry:
+                    self.flow(block_id, entry, self.location(statement), "fallthrough", "unresolved",
+                              f"{type(statement).__name__} flow is outside the documented CFG subset")
+                entry = block_id
+                continue
+            node = self.add_statement(statement, parent)
+            if entry and not isinstance(statement, (ast.Return, ast.Raise)):
+                self.flow(node.id, entry, node.location, "next")
+            entry = node.id
+        return entry
+
+    def if_flow(self, statement: ast.If, successor: str | None) -> str:
+        block_id = self.node_id(statement, "block")
+        block = self.graph.node(block_id)
+        for label, body in (("if_true", statement.body), ("if_false", statement.orelse)):
+            branch = next((node for node in self.graph.nodes
+                           if node.parent_id == block_id and node.kind == "branch" and node.name == label), None)
+            if branch:
+                entry = self.sequence(body, branch, successor)
+                self.flow(block_id, branch.id, branch.location, label)
+                if entry:
+                    self.flow(branch.id, entry, branch.location, "branch_entry")
+            elif successor:
+                self.flow(block_id, successor, block.location, label)
+        return block_id
+
+    def add_statement(self, statement: ast.stmt, parent: Node) -> Node:
+        location = self.location(statement)
+        name = f"{type(statement).__name__}@{statement.lineno}"
+        facts = {"syntax_kind": type(statement).__name__,
+                 "terminal": isinstance(statement, (ast.Return, ast.Raise))}
+        if self.include_source:
+            facts["source"] = ast.get_source_segment(self.source, statement) or ""
+        node = Node(self.node_id(statement, "statement"), "statement", name,
+                    f"{parent.qualified_name}.{name}", "python", location, parent.id, facts)
+        self.graph.nodes.append(node)
+        self.graph.edges.append(Edge(parent.id, node.id, "contains", location))
+        return node
+
+    def add_exit(self, owner: Node) -> Node:
+        location = Location(self.path, owner.location.end_line, owner.location.end_line,
+                            owner.location.end_column, owner.location.end_column)
+        node = Node(f"{self.path}:{owner.location.start_line}:{owner.location.start_column}:exit", "exit",
+                    "implicit_return", f"{owner.qualified_name}.implicit_return", "python",
+                    location, owner.id, {"syntax_kind": "implicit_return"})
+        self.graph.nodes.append(node)
+        self.graph.edges.append(Edge(owner.id, node.id, "contains", location))
+        return node
+
+    def flow(self, source: str, target: str, evidence: Location, expression: str,
+             status: str = "static_candidate", reason: str = "Possible static control transfer; not observed"):
+        self.graph.edges.append(Edge(source, target, "flows_to", evidence, status, expression, reason))
+
+    def node_id(self, node: ast.AST, kind: str) -> str:
+        return f"{self.path}:{node.lineno}:{node.col_offset}:{kind}"
 
 
 class _Visitor(ast.NodeVisitor):
