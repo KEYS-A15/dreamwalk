@@ -39,15 +39,16 @@ class Edge:
 
 @dataclass
 class Graph:
-    schema_version: str = "1.2"
-    analyzer_version: str = "0.3.0"
+    schema_version: str = "1.3"
+    analyzer_version: str = "0.4.0"
     languages: list[str] = field(default_factory=lambda: ["python"])
     files: list[dict] = field(default_factory=list)
     nodes: list[Node] = field(default_factory=list)
     edges: list[Edge] = field(default_factory=list)
     diagnostics: list[dict] = field(default_factory=list)
     limitations: list[str] = field(default_factory=lambda: [
-        "Control flow covers function entry, sequencing, if branches and return/raise terminals only.",
+        "Control flow is conservative; finally execution is shown, but resumption of pending transfers remains unresolved.",
+        "Exception handler matching and context-manager suppression are candidates, not proven behavior.",
         "Call targets are lexical candidates, not proof of runtime dispatch.",
         "No target code is imported or executed; there are no recorded events.",
         "Dynamic dispatch, inheritance and external call targets remain unresolved.",

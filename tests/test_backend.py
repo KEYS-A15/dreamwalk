@@ -143,6 +143,45 @@ class AnalyzerTests(unittest.TestCase):
                                                  if node.location.start_line == 4)
                              for edge in flows))
 
+    def test_loop_break_continue_and_else_paths(self):
+        graph = self.analyze("def walk(xs):\n    for x in xs:\n        if x < 0:\n            continue\n        if x == 0:\n            break\n    else:\n        return 'done'\n    return 'stopped'\n")
+        flows = [edge for edge in graph.edges if edge.kind == "flows_to"]
+        loop = next(node for node in graph.nodes
+                    if node.kind == "block" and node.facts["syntax_kind"] == "For")
+        after = next(node for node in graph.nodes
+                     if node.kind == "statement" and node.location.start_line == 9)
+        self.assertTrue(any(edge.expression == "continue" and edge.target == loop.id
+                            for edge in flows))
+        self.assertTrue(any(edge.expression == "break" and edge.target == after.id
+                            for edge in flows))
+        self.assertTrue(any(edge.source == loop.id and edge.expression == "loop_complete"
+                            for edge in flows))
+
+    def test_try_handlers_finally_and_exception_paths(self):
+        graph = self.analyze("def run():\n    try:\n        risky()\n    except ValueError:\n        recover()\n    else:\n        success()\n    finally:\n        cleanup()\n    return 1\n")
+        flows = [edge for edge in graph.edges if edge.kind == "flows_to"]
+        roles = {node.name: node.id for node in graph.nodes if node.kind == "branch"}
+        self.assertTrue(any(edge.expression == "exception_candidate"
+                            and edge.target == roles["except_0"] for edge in flows))
+        self.assertTrue(any(edge.target == roles["finally"] for edge in flows))
+        self.assertTrue(any(edge.source == roles["finally"] and edge.expression == "branch_entry"
+                            for edge in flows))
+
+        graph = self.analyze("def finish():\n    try:\n        return 1\n    finally:\n        cleanup()\n")
+        final = next(node for node in graph.nodes if node.kind == "branch" and node.name == "finally")
+        transfer = next(edge for edge in graph.edges if edge.expression == "return_via_finally")
+        self.assertEqual((transfer.target, transfer.status), (final.id, "unresolved"))
+
+    def test_with_and_match_paths_preserve_uncertainty(self):
+        graph = self.analyze("def choose(x, manager):\n    with manager:\n        match x:\n            case 1:\n                return 'one'\n            case _:\n                return 'other'\n")
+        flows = [edge for edge in graph.edges if edge.kind == "flows_to"]
+        self.assertTrue(any(edge.expression == "with_body" for edge in flows))
+        self.assertTrue(any(edge.expression == "context_manager_exception"
+                            and edge.status == "unresolved" and edge.target is None for edge in flows))
+        self.assertEqual({edge.expression for edge in flows if edge.expression.startswith("case_")},
+                         {"case_0", "case_1"})
+        self.assertFalse(any(edge.expression == "no_match" for edge in flows))
+
     def test_encoding_and_unicode_source_span(self):
         (self.root / "latin.py").write_bytes(b"# coding: latin-1\nx = 'caf\xe9'\n")
         graph = self.analyze("def café():\n    return '日本'\n", include_source=True)
@@ -158,6 +197,11 @@ class AnalyzerTests(unittest.TestCase):
         self.assertEqual(len(graph.explain(node.id)["calls"]), 1)
         with self.assertRaises(ValueError):
             graph.focus(node.id, 6)
+
+    def test_inline_branch_node_ids_are_unique(self):
+        graph = self.analyze("def choose(x):\n    return 1 if x else 2\n")
+        ids = [node.id for node in graph.nodes]
+        self.assertEqual(len(ids), len(set(ids)))
 
     def test_limits_and_invalid_root(self):
         graph = self.analyze("x=1", max_bytes=1)
@@ -181,7 +225,7 @@ class AnalyzerTests(unittest.TestCase):
         try:
             base = f"http://127.0.0.1:{server.server_port}"
             with urlopen(base + "/graph", timeout=3) as response:
-                self.assertEqual(json.load(response)["schema_version"], "1.2")
+                self.assertEqual(json.load(response)["schema_version"], "1.3")
             for suffix, status in [("/focus", 404), ("/missing", 404),
                                    ("/focus?id=app.py:1:0:function&depth=10", 400)]:
                 with self.assertRaises(HTTPError) as caught:

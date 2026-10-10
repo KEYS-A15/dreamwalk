@@ -2,6 +2,12 @@
 
 Dreamwalk follows [Semantic Versioning](https://semver.org/).
 
+## 0.4.0 - 2026-10-09
+
+- Extend possible static control flow through loops, `try`/`finally`, `with` and `match`.
+- Represent `break`, `continue`, exception candidates and unmatched exception paths explicitly.
+- Preserve uncertainty where context managers or pending transfers through `finally` affect flow.
+
 ## 0.3.0 - 2026-10-09
 
 - Resolve calls through unambiguous explicit local re-export chains.

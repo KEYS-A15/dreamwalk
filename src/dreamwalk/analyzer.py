@@ -177,7 +177,7 @@ def _link_calls(graph: Graph):
 
 
 class _ControlFlow:
-    """Add a conservative function CFG for sequencing, if branches and exits."""
+    """Add conservative possible control transfers without claiming execution."""
 
     def __init__(self, graph: Graph, path: str, source: str, include_source: bool):
         self.graph, self.path, self.source = graph, path, source
@@ -210,7 +210,9 @@ class _ControlFlow:
                 edge.source = min(candidates,
                                   key=lambda node: node.location.end_line - node.location.start_line).id
 
-    def sequence(self, statements: list[ast.stmt], parent: Node, successor: str | None) -> str | None:
+    def sequence(self, statements: list[ast.stmt], parent: Node, successor: str | None,
+                 *, break_target: str | None = None, continue_target: str | None = None,
+                 exception_targets: tuple[str, ...] = (), finalizer: str | None = None) -> str | None:
         entry = successor
         for statement in reversed(statements):
             if isinstance(statement, DEFINITIONS):
@@ -219,7 +221,24 @@ class _ControlFlow:
                     and isinstance(statement.value.value, str)):
                 continue
             if isinstance(statement, ast.If):
-                entry = self.if_flow(statement, entry)
+                entry = self.if_flow(statement, entry, break_target, continue_target,
+                                     exception_targets, finalizer)
+                continue
+            if isinstance(statement, (ast.For, ast.AsyncFor, ast.While)):
+                entry = self.loop_flow(statement, entry, break_target, continue_target,
+                                       exception_targets, finalizer)
+                continue
+            if isinstance(statement, (ast.Try, ast.TryStar)):
+                entry = self.try_flow(statement, entry, break_target, continue_target,
+                                      exception_targets, finalizer)
+                continue
+            if isinstance(statement, (ast.With, ast.AsyncWith)):
+                entry = self.with_flow(statement, entry, break_target, continue_target,
+                                       exception_targets, finalizer)
+                continue
+            if isinstance(statement, ast.Match):
+                entry = self.match_flow(statement, entry, break_target, continue_target,
+                                        exception_targets, finalizer)
                 continue
             if isinstance(statement, BLOCKS):
                 block_id = self.node_id(statement, "block")
@@ -229,19 +248,46 @@ class _ControlFlow:
                 entry = block_id
                 continue
             node = self.add_statement(statement, parent)
-            if entry and not isinstance(statement, (ast.Return, ast.Raise)):
+            if isinstance(statement, ast.Break):
+                if finalizer or break_target:
+                    self.flow(node.id, finalizer or break_target, node.location,
+                              "break_via_finally" if finalizer else "break",
+                              "unresolved" if finalizer else "static_candidate",
+                              "Finally executes before break; the resumed destination is unresolved"
+                              if finalizer else "Possible static break transfer; not observed")
+            elif isinstance(statement, ast.Continue):
+                if finalizer or continue_target:
+                    self.flow(node.id, finalizer or continue_target, node.location,
+                              "continue_via_finally" if finalizer else "continue",
+                              "unresolved" if finalizer else "static_candidate",
+                              "Finally executes before continue; the resumed destination is unresolved"
+                              if finalizer else "Possible static continue transfer; not observed")
+            elif isinstance(statement, ast.Return):
+                if finalizer:
+                    self.flow(node.id, finalizer, node.location, "return_via_finally", "unresolved",
+                              "Finally executes before return; the resumed destination is unresolved")
+            elif isinstance(statement, ast.Raise):
+                for target in exception_targets:
+                    self.flow(node.id, target, node.location, "raise")
+                if finalizer:
+                    self.flow(node.id, finalizer, node.location, "unhandled_exception_via_finally",
+                              "unresolved", "Finally executes before an unmatched exception propagates")
+            elif entry:
                 self.flow(node.id, entry, node.location, "next")
             entry = node.id
         return entry
 
-    def if_flow(self, statement: ast.If, successor: str | None) -> str:
+    def if_flow(self, statement: ast.If, successor: str | None,
+                break_target: str | None, continue_target: str | None,
+                exception_targets: tuple[str, ...], finalizer: str | None) -> str:
         block_id = self.node_id(statement, "block")
         block = self.graph.node(block_id)
         for label, body in (("if_true", statement.body), ("if_false", statement.orelse)):
-            branch = next((node for node in self.graph.nodes
-                           if node.parent_id == block_id and node.kind == "branch" and node.name == label), None)
+            branch = self.branch(block_id, label)
             if branch:
-                entry = self.sequence(body, branch, successor)
+                entry = self.sequence(body, branch, successor, break_target=break_target,
+                                      continue_target=continue_target,
+                                      exception_targets=exception_targets, finalizer=finalizer)
                 self.flow(block_id, branch.id, branch.location, label)
                 if entry:
                     self.flow(branch.id, entry, branch.location, "branch_entry")
@@ -249,11 +295,138 @@ class _ControlFlow:
                 self.flow(block_id, successor, block.location, label)
         return block_id
 
+    def loop_flow(self, statement: ast.For | ast.AsyncFor | ast.While, successor: str | None,
+                  break_target: str | None, continue_target: str | None,
+                  exception_targets: tuple[str, ...], finalizer: str | None) -> str:
+        block_id = self.node_id(statement, "block")
+        block = self.graph.node(block_id)
+        body = self.branch(block_id, "loop_body")
+        otherwise = self.branch(block_id, "loop_else")
+        if body:
+            entry = self.sequence(statement.body, body, block_id, break_target=successor,
+                                  continue_target=block_id, exception_targets=exception_targets,
+                                  finalizer=finalizer)
+            self.flow(block_id, body.id, body.location, "loop_body")
+            self.flow(body.id, entry or block_id, body.location, "branch_entry")
+        if otherwise:
+            entry = self.sequence(statement.orelse, otherwise, successor,
+                                  break_target=break_target, continue_target=continue_target,
+                                  exception_targets=exception_targets, finalizer=finalizer)
+            self.flow(block_id, otherwise.id, otherwise.location, "loop_complete")
+            if entry:
+                self.flow(otherwise.id, entry, otherwise.location, "branch_entry")
+        elif successor:
+            self.flow(block_id, successor, block.location, "loop_exit")
+        return block_id
+
+    def try_flow(self, statement: ast.Try | ast.TryStar, successor: str | None,
+                 break_target: str | None, continue_target: str | None,
+                 exception_targets: tuple[str, ...], finalizer: str | None) -> str:
+        block_id = self.node_id(statement, "block")
+        block = self.graph.node(block_id)
+        body = self.branch(block_id, "try_body")
+        handlers = tuple(branch.id for index in range(len(statement.handlers))
+                         if (branch := self.branch(block_id, f"except_{index}")))
+        otherwise = self.branch(block_id, "try_else")
+        final = self.branch(block_id, "finally")
+
+        if final:
+            entry = self.sequence(statement.finalbody, final, successor,
+                                  break_target=break_target, continue_target=continue_target,
+                                  exception_targets=exception_targets, finalizer=finalizer)
+            if entry:
+                self.flow(final.id, entry, final.location, "branch_entry")
+
+        normal_target = otherwise.id if otherwise else final.id if final else successor
+        if body:
+            entry = self.sequence(statement.body, body, normal_target,
+                                  break_target=break_target, continue_target=continue_target,
+                                  exception_targets=handlers or exception_targets,
+                                  finalizer=final.id if final else finalizer)
+            self.flow(block_id, body.id, body.location, "try_body")
+            if entry:
+                self.flow(body.id, entry, body.location, "branch_entry")
+
+        if otherwise:
+            entry = self.sequence(statement.orelse, otherwise, final.id if final else successor,
+                                  break_target=break_target, continue_target=continue_target,
+                                  exception_targets=exception_targets,
+                                  finalizer=final.id if final else finalizer)
+            if entry:
+                self.flow(otherwise.id, entry, otherwise.location, "branch_entry")
+
+        for index, handler in enumerate(statement.handlers):
+            branch = self.branch(block_id, f"except_{index}")
+            if not branch:
+                continue
+            entry = self.sequence(handler.body, branch, final.id if final else successor,
+                                  break_target=break_target, continue_target=continue_target,
+                                  exception_targets=exception_targets,
+                                  finalizer=final.id if final else finalizer)
+            self.flow(block_id, branch.id, branch.location, "exception_candidate")
+            if entry:
+                self.flow(branch.id, entry, branch.location, "branch_entry")
+
+        if final:
+            self.flow(block_id, final.id, final.location, "unhandled_exception_via_finally",
+                      "unresolved", "An unmatched exception executes finally before propagating")
+        elif exception_targets:
+            for target in exception_targets:
+                self.flow(block_id, target, block.location, "exception_propagation")
+        elif not handlers:
+            self.flow(block_id, None, block.location, "unhandled_exception", "unresolved",
+                      "Possible exception leaves the analyzed function")
+        return block_id
+
+    def with_flow(self, statement: ast.With | ast.AsyncWith, successor: str | None,
+                  break_target: str | None, continue_target: str | None,
+                  exception_targets: tuple[str, ...], finalizer: str | None) -> str:
+        block_id = self.node_id(statement, "block")
+        block = self.graph.node(block_id)
+        entry = self.sequence(statement.body, block, successor, break_target=break_target,
+                              continue_target=continue_target,
+                              exception_targets=exception_targets, finalizer=finalizer)
+        if entry:
+            self.flow(block_id, entry, block.location, "with_body")
+        self.flow(block_id, None, block.location, "context_manager_exception", "unresolved",
+                  "Context manager exit may suppress or propagate an exception")
+        return block_id
+
+    def match_flow(self, statement: ast.Match, successor: str | None,
+                   break_target: str | None, continue_target: str | None,
+                   exception_targets: tuple[str, ...], finalizer: str | None) -> str:
+        block_id = self.node_id(statement, "block")
+        block = self.graph.node(block_id)
+        for index, case in enumerate(statement.cases):
+            branch = self.branch(block_id, f"case_{index}")
+            if not branch:
+                continue
+            entry = self.sequence(case.body, branch, successor, break_target=break_target,
+                                  continue_target=continue_target,
+                                  exception_targets=exception_targets, finalizer=finalizer)
+            self.flow(block_id, branch.id, branch.location, f"case_{index}")
+            if entry:
+                self.flow(branch.id, entry, branch.location, "branch_entry")
+        last = statement.cases[-1] if statement.cases else None
+        if successor and not (last and last.guard is None and self.irrefutable(last.pattern)):
+            self.flow(block_id, successor, block.location, "no_match")
+        return block_id
+
+    def branch(self, block_id: str, name: str) -> Node | None:
+        return next((node for node in self.graph.nodes
+                     if node.parent_id == block_id and node.kind == "branch" and node.name == name), None)
+
+    def irrefutable(self, pattern: ast.pattern) -> bool:
+        return ((isinstance(pattern, ast.MatchAs) and pattern.pattern is None) or
+                (isinstance(pattern, ast.MatchOr) and any(self.irrefutable(item)
+                                                          for item in pattern.patterns)))
+
     def add_statement(self, statement: ast.stmt, parent: Node) -> Node:
         location = self.location(statement)
         name = f"{type(statement).__name__}@{statement.lineno}"
         facts = {"syntax_kind": type(statement).__name__,
-                 "terminal": isinstance(statement, (ast.Return, ast.Raise))}
+                 "terminal": isinstance(statement, (ast.Return, ast.Raise,
+                                                       ast.Break, ast.Continue))}
         if self.include_source:
             facts["source"] = ast.get_source_segment(self.source, statement) or ""
         node = Node(self.node_id(statement, "statement"), "statement", name,
@@ -272,7 +445,7 @@ class _ControlFlow:
         self.graph.edges.append(Edge(owner.id, node.id, "contains", location))
         return node
 
-    def flow(self, source: str, target: str, evidence: Location, expression: str,
+    def flow(self, source: str, target: str | None, evidence: Location, expression: str,
              status: str = "static_candidate", reason: str = "Possible static control transfer; not observed"):
         self.graph.edges.append(Edge(source, target, "flows_to", evidence, status, expression, reason))
 
@@ -514,7 +687,7 @@ class _Visitor(ast.NodeVisitor):
         start, end = self.location(first), self.location(last)
         loc = Location(self.path, start.start_line, end.end_line,
                        start.start_column, end.end_column)
-        branch = Node(f"{self.path}:{loc.start_line}:{loc.start_column}:branch", "branch", label,
+        branch = Node(f"{self.path}:{loc.start_line}:{loc.start_column}:branch:{order}", "branch", label,
                       f"{owner.qualified_name}.{label}", "python", loc, owner.id,
                       {"role": label, "order": order})
         self.graph.nodes.append(branch)

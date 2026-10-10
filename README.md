@@ -5,7 +5,7 @@
 
 Explore your code. Follow its execution. Understand every step.
 
-**Status: first backend milestone, not a finished execution explorer.** Python
+**Status: static-analysis backend, not a finished execution explorer.** Python
 static analysis and a local read-only API work in this release. The Iron Man
 inspired interface, runtime recordings and additional languages are future work.
 
@@ -45,8 +45,8 @@ diagnostics. Invalid requests return exit code 2.
 - Local import module candidates, conservative same-file, imported and explicit
   re-exported call candidates.
 - Explicit branch nodes for present `if`/loop/`try`/`match`/conditional-expression arms.
-- A static control-flow subset with function entry, sequential statements, `if`
-  branches, implicit returns and explicit `return`/`raise` terminals.
+- Possible static flow through sequencing, branches, loops, `try`/`finally`,
+  `with` and `match`, including explicit `break` and `continue` transfers.
 - Parameters, annotations, author docstrings, returns, assignments, awaits and raises.
 - Relative source spans, UTF-8 byte columns and per-file SHA-256 identity.
 - Function/block isolation with adjacent callers, callees and containers.
@@ -79,7 +79,7 @@ are unavailable, use it without resolving build dependencies:
 
 ```powershell
 uv venv --python 3.11
-uv pip install --offline dist\dreamwalk-0.3.0-py3-none-any.whl
+uv pip install --offline dist\dreamwalk-0.4.0-py3-none-any.whl
 uv run --no-sync dreamwalk analyze examples
 uv run --no-sync python -m unittest discover -s tests -v
 ```
@@ -89,7 +89,7 @@ snapshot; source changes require rebuilding or switching to an editable install.
 
 ## Evidence rules
 
-`schema_version: 1.2` defines nodes, edges, files, diagnostics and limitations.
+`schema_version: 1.3` defines nodes, edges, files, diagnostics and limitations.
 IDs are relative path + source position + kind; they are snapshot IDs, not stable
 identities across edits. File hashes establish exact file versions.
 
@@ -106,9 +106,12 @@ function's focus graph includes related blocks; its explanation lists directly
 attached calls and child IDs for further exploration.
 
 **This is not a complete control-flow graph.** Only `flows_to` means a possible
-static control transfer; `contains` and `branches` remain structural. Loops,
-`try`, `with` and `match` are opaque flow nodes with unresolved fallthrough.
-No observed runtime edges exist yet.
+static control transfer; `contains` and `branches` remain structural. Loop
+iteration and exhaustion, handlers, `try`/`else`/`finally`, context bodies and
+match cases are represented conservatively. Exception matching is not proven,
+context-manager suppression remains unresolved, and a pending return, raise,
+break or continue is not resumed beyond `finally`. No observed runtime edges
+exist yet.
 Imported modules and their unambiguous top-level functions/classes can be static
 candidates, including explicit `from` re-export chains. Inheritance, instance
 dispatch, wildcard re-exports and multi-hop attribute calls remain unresolved.
@@ -125,13 +128,11 @@ contain secrets. Review JSON exports before publication.
 
 ## Next backend milestones
 
-1. Extend control flow through loops, `try`/`finally`, `with` and `match`, with
-   explicit break/continue and exception paths.
-2. Opt-in recording of a user-specified command, with separate observed evidence
+1. Opt-in recording of a user-specified command, with separate observed evidence
    and validation for recursion, exceptions, generators and async execution.
-3. Grounded semantic explanations with source citations and an optional model.
-4. Reviewed recruiter tours and curated export; then the Iron Man inspired UI.
-5. A second language adapter using the same graph contract after the Python
+2. Grounded semantic explanations with source citations and an optional model.
+3. Reviewed recruiter tours and curated export; then the Iron Man inspired UI.
+4. A second language adapter using the same graph contract after the Python
    contract stabilizes. Only Python is currently supported.
 
 ## Positioning checkpoint
