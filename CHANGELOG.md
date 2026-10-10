@@ -2,6 +2,13 @@
 
 Dreamwalk follows [Semantic Versioning](https://semver.org/).
 
+## 0.5.0 - 2026-10-09
+
+- Add an opt-in Python script recorder with observed call, line, return, yield and exception events.
+- Link recorded frames and executed lines back to the pre-run static snapshot when unambiguous.
+- Serve one validated observed run at `GET /run` without mixing it into static graph evidence.
+- Exclude arguments, local variables, values and exception messages from recordings.
+
 ## 0.4.0 - 2026-10-09
 
 - Extend possible static control flow through loops, `try`/`finally`, `with` and `match`.

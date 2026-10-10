@@ -1,4 +1,4 @@
-"""Read-only, loopback API for a single pre-analyzed graph."""
+"""Read-only, loopback API for one static graph and optional observed run."""
 
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 from .model import Graph
 
 
-def create_server(graph: Graph, port: int = 8765) -> ThreadingHTTPServer:
+def create_server(graph: Graph, port: int = 8765, observed_run: dict | None = None) -> ThreadingHTTPServer:
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             # Reject cross-origin browser requests and DNS rebinding hostnames.
@@ -20,9 +20,12 @@ def create_server(graph: Graph, port: int = 8765) -> ThreadingHTTPServer:
             query = parse_qs(parsed.query)
             try:
                 if parsed.path == "/health":
-                    result = {"status": "ok", "schema_version": graph.schema_version}
+                    result = {"status": "ok", "schema_version": graph.schema_version,
+                              "run_loaded": observed_run is not None}
                 elif parsed.path == "/graph":
                     result = graph.to_dict()
+                elif parsed.path == "/run" and observed_run is not None:
+                    result = observed_run
                 elif parsed.path == "/explain":
                     result = graph.explain(query["id"][0])
                 elif parsed.path == "/focus":

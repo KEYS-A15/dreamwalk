@@ -217,15 +217,79 @@ class AnalyzerTests(unittest.TestCase):
         self.assertEqual(main(["analyze", str(self.root), "--output", str(output)]), 2)
         self.assertEqual(original, output.read_bytes())
 
+    def test_record_python_run_and_preserve_observed_evidence(self):
+        source = """import asyncio
+
+class Worker:
+    pass
+
+def recurse(n):
+    return recurse(n - 1) if n else 0
+
+def values():
+    yield recurse(2)
+
+async def work():
+    return list(values())
+
+asyncio.run(work())
+"""
+        (self.root / "app.py").write_text(source, encoding="utf-8")
+        output = self.root / "run.json"
+        self.assertEqual(main(["record", str(self.root), "--output", str(output), "app.py"]), 0)
+        run = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual((run["kind"], run["evidence_kind"], run["exit_code"]),
+                         ("observed_run", "observed", 0))
+        self.assertEqual(run["argument_count"], 0)
+        self.assertIn("yield", {event["kind"] for event in run["events"]})
+        recurse = [event for event in run["events"]
+                   if event["kind"] == "call" and event["function"] == "recurse"]
+        self.assertEqual(len(recurse), 3)
+        self.assertTrue(all(event.get("symbol_id") for event in recurse))
+        self.assertTrue(next(event for event in run["events"]
+                             if event["kind"] == "call" and event["function"] == "Worker")
+                        .get("symbol_id"))
+        self.assertFalse(any("value" in event or "arguments" in event for event in run["events"]))
+
+    def test_record_failure_limits_and_preflight_validation(self):
+        (self.root / "app.py").write_text("raise ValueError('private detail')\n", encoding="utf-8")
+        output = self.root / "failed.json"
+        self.assertEqual(main(["record", str(self.root), "--output", str(output),
+                               "--max-events", "2", "app.py"]), 1)
+        content = output.read_text(encoding="utf-8")
+        run = json.loads(content)
+        self.assertTrue(run["truncated"])
+        self.assertEqual(len(run["events"]), 2)
+        self.assertNotIn("private detail", content)
+
+        marker = self.root / "EXECUTED"
+        (self.root / "app.py").write_text(f"from pathlib import Path\nPath({str(marker)!r}).touch()\n",
+                                           encoding="utf-8")
+        self.assertEqual(main(["record", str(self.root), "--output", str(output), "app.py"]), 2)
+        self.assertFalse(marker.exists())
+        with tempfile.TemporaryDirectory() as other:
+            outside = Path(other) / "outside.py"
+            outside.write_text("pass\n", encoding="utf-8")
+            self.assertEqual(main(["record", str(self.root), "--output",
+                                   str(self.root / "outside.json"), str(outside)]), 2)
+        invalid = self.root / "invalid-run.json"
+        invalid.write_text("{}", encoding="utf-8")
+        self.assertEqual(main(["serve", str(self.root), "--run", str(invalid)]), 2)
+
     def test_api_graph_focus_and_origin(self):
         graph = self.analyze("def f(): return 1")
-        server = create_server(graph, 0)
+        observed = {"kind": "observed_run", "schema_version": "1.0", "events": []}
+        server = create_server(graph, 0, observed)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
             base = f"http://127.0.0.1:{server.server_port}"
             with urlopen(base + "/graph", timeout=3) as response:
                 self.assertEqual(json.load(response)["schema_version"], "1.3")
+            with urlopen(base + "/run", timeout=3) as response:
+                self.assertEqual(json.load(response)["kind"], "observed_run")
+            with urlopen(base + "/health", timeout=3) as response:
+                self.assertTrue(json.load(response)["run_loaded"])
             for suffix, status in [("/focus", 404), ("/missing", 404),
                                    ("/focus?id=app.py:1:0:function&depth=10", 400)]:
                 with self.assertRaises(HTTPError) as caught:

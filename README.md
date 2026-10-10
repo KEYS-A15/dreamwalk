@@ -5,9 +5,9 @@
 
 Explore your code. Follow its execution. Understand every step.
 
-**Status: static-analysis backend, not a finished execution explorer.** Python
-static analysis and a local read-only API work in this release. The Iron Man
-inspired interface, runtime recordings and additional languages are future work.
+**Status: backend foundation, not a finished execution explorer.** Python static
+analysis, opt-in single-script recording and a local read-only API work in this
+release. The Iron Man inspired interface and additional languages are future work.
 
 ## Install in your Portfolio folder
 
@@ -19,7 +19,8 @@ The archive contains project files directly, without a nested project directory.
 cd C:\Users\shrey\Documents\Projects\Portfolio\dreamwalk
 uv sync
 uv run dreamwalk analyze examples --output demo.graph.json
-uv run dreamwalk serve examples
+uv run dreamwalk record examples --output demo.run.json order_service.py
+uv run dreamwalk serve examples --run demo.run.json
 ```
 
 Open `http://127.0.0.1:8765/graph` to inspect the demo graph. Installation uses
@@ -53,6 +54,8 @@ diagnostics. Invalid requests return exit code 2.
 - JSON export; optional source embedding with `--include-source`.
 - Parse diagnostics; ignored dependency/build folders and symlink boundaries.
 - Deterministic analysis without importing or executing the target repository.
+- Opt-in recording of one Python script in a child process, with call, line,
+  return, yield and exception events linked to static nodes where possible.
 
 `explain` returns extracted facts and the author's docstring. It does not yet
 generate a semantic natural-language explanation of arbitrary code or infer
@@ -64,12 +67,13 @@ business intent, actual return values, complete side effects or invariants.
 | --- | --- |
 | `GET /health` | API status and schema version |
 | `GET /graph` | Complete analyzed snapshot |
+| `GET /run` | Loaded observed run, or 404 when none was supplied |
 | `GET /explain?id=<node-id>` | Source-grounded facts for one node |
 | `GET /focus?id=<node-id>&depth=1` | Undirected graph neighborhood, depth 0–5 |
 
-The API binds to `127.0.0.1`, serves one graph captured at startup, and accepts no
-execution commands, filesystem paths or uploads. Restart to refresh. Cross-origin
-browser requests are rejected; UI integration will need a same-origin route.
+The API binds to `127.0.0.1`, serves one graph and optionally one run captured at
+startup, and accepts no execution commands, filesystem paths or uploads. Restart
+to refresh. Cross-origin browser requests are rejected; UI integration will need a same-origin route.
 It is a local development service, not a hosted multi-user backend.
 
 ## Offline fallback
@@ -79,7 +83,7 @@ are unavailable, use it without resolving build dependencies:
 
 ```powershell
 uv venv --python 3.11
-uv pip install --offline dist\dreamwalk-0.4.0-py3-none-any.whl
+uv pip install --offline dist\dreamwalk-0.5.0-py3-none-any.whl
 uv run --no-sync dreamwalk analyze examples
 uv run --no-sync python -m unittest discover -s tests -v
 ```
@@ -99,6 +103,8 @@ identities across edits. File hashes establish exact file versions.
   runtime control flow, rebinding and decorators may still change the result.
 - **unresolved:** external imports, dynamic attribute/method calls, ambiguous or
   shadowed names, and implicit comprehension/lambda scopes.
+- **observed:** events emitted by one explicitly recorded Python process. An
+  observation is evidence for that run only, never proof another path is impossible.
 
 Calls are attributed to the nearest structural node. Function body facts exclude
 nested definitions. Definition-time calls belong to the enclosing scope. A
@@ -110,8 +116,13 @@ static control transfer; `contains` and `branches` remain structural. Loop
 iteration and exhaustion, handlers, `try`/`else`/`finally`, context bodies and
 match cases are represented conservatively. Exception matching is not proven,
 context-manager suppression remains unresolved, and a pending return, raise,
-break or continue is not resumed beyond `finally`. No observed runtime edges
-exist yet.
+break or continue is not resumed beyond `finally`.
+
+Observed runs use a separate `observed_run` schema. `dreamwalk record` accepts one
+`.py` script inside the analyzed root and executes it in a child interpreter. It
+does not store arguments, local variables, return values or exception messages.
+Only Python frames whose source files resolve inside that root are recorded. It
+does not yet wrap `python -m`, test runners, console scripts or child processes.
 Imported modules and their unambiguous top-level functions/classes can be static
 candidates, including explicit `from` re-export chains. Inheritance, instance
 dispatch, wildcard re-exports and multi-hop attribute calls remain unresolved.
@@ -120,16 +131,18 @@ monkey-patching and global/nonlocal rebinding require further analysis.
 
 Python syntax support follows the interpreter used to run Dreamwalk. Python 3.11
 cannot parse syntax introduced in later versions; failures appear as diagnostics.
-Source is parsed, never executed, but this is not a hardened service for hostile
-repositories. File/count limits are safeguards, not an OS resource sandbox.
+Static analysis never executes source, but `dreamwalk record` explicitly does.
+Record only code you trust: the child is not an OS sandbox and has the invoking
+user's filesystem and network permissions. File/count limits are safeguards,
+not a security boundary.
 
 Even without `--include-source`, docstrings, expressions and default values can
 contain secrets. Review JSON exports before publication.
 
 ## Next backend milestones
 
-1. Opt-in recording of a user-specified command, with separate observed evidence
-   and validation for recursion, exceptions, generators and async execution.
+1. Expand recording to modules, test runners and child processes, then add
+   failure-path and run-comparison queries.
 2. Grounded semantic explanations with source citations and an optional model.
 3. Reviewed recruiter tours and curated export; then the Iron Man inspired UI.
 4. A second language adapter using the same graph contract after the Python

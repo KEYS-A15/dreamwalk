@@ -40,7 +40,7 @@ class Edge:
 @dataclass
 class Graph:
     schema_version: str = "1.3"
-    analyzer_version: str = "0.4.0"
+    analyzer_version: str = "0.5.0"
     languages: list[str] = field(default_factory=lambda: ["python"])
     files: list[dict] = field(default_factory=list)
     nodes: list[Node] = field(default_factory=list)

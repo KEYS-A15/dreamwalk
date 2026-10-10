@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from .analyzer import PythonAnalyzer
+from .recording import record_python
 from .server import create_server
 
 
@@ -25,12 +26,37 @@ def main(argv=None) -> int:
             command.add_argument("--depth", type=int, default=1)
         if name == "serve":
             command.add_argument("--port", type=int, default=8765)
+            command.add_argument("--run", type=Path, help="Serve one observed-run JSON at /run")
+    record = sub.add_parser("record", help="Execute and trace one Python script")
+    record.add_argument("root", type=Path)
+    record.add_argument("--output", type=Path, required=True)
+    record.add_argument("--max-events", type=int, default=100_000)
+    record.add_argument("script", type=Path)
+    record.add_argument("arguments", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     try:
+        if args.command == "record":
+            if args.output.exists():
+                raise FileExistsError(args.output)
+            run, exit_code = record_python(args.root, args.script, args.arguments, args.max_events)
+            with args.output.open("x", encoding="utf-8") as handle:
+                json.dump(run, handle, indent=2, ensure_ascii=False)
+                handle.write("\n")
+            print(f"Wrote {args.output}: {len(run['events'])} observed events, "
+                  f"exit code {run['exit_code']}")
+            return exit_code
         graph = PythonAnalyzer().analyze(args.root, include_source=args.include_source,
                                          max_files=args.max_files)
         if args.command == "serve":
-            with create_server(graph, args.port) as server:
+            observed_run = None
+            if args.run:
+                observed_run = json.loads(args.run.read_text(encoding="utf-8"))
+                if (not isinstance(observed_run, dict) or
+                        observed_run.get("kind") != "observed_run" or
+                        observed_run.get("schema_version") != "1.0" or
+                        not isinstance(observed_run.get("events"), list)):
+                    raise ValueError("Run file is not a Dreamwalk observed run")
+            with create_server(graph, args.port, observed_run) as server:
                 print(f"Dreamwalk API: http://127.0.0.1:{server.server_port}/graph", flush=True)
                 print("Graph is a startup snapshot. Restart after code changes.", flush=True)
                 server.serve_forever()
@@ -47,7 +73,7 @@ def main(argv=None) -> int:
         else:
             print(content)
         return int(args.command == "analyze" and args.strict and bool(graph.diagnostics))
-    except (OSError, ValueError, KeyError) as error:
+    except (OSError, ValueError, KeyError, RuntimeError, json.JSONDecodeError) as error:
         print(f"Dreamwalk: {error}", file=sys.stderr)
         return 2
     except KeyboardInterrupt:
